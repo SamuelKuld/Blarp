@@ -66,6 +66,11 @@ function Screen:set_font(font)
     love.graphics.setFont(self.font)
 end
 
+Items = {}
+Items.__index = Items
+function Items.new()
+    
+end
 
 Spacer = {}
 Spacer.__index = Spacer
