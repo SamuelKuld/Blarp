@@ -1,4 +1,3 @@
-
 function love.load()
     Game = require("game_obj").new()
 end

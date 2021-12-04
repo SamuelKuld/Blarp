@@ -65,11 +65,20 @@ function Screen:set_font(font)
     self.font = font
     love.graphics.setFont(self.font)
 end
+function Screen:get_width()
+    self.width = love.graphics:getWidth()
+    return self.width
+end
+function Screen:get_height()
+    self.height = love.graphics:getHeight()
+    return self.height
+end
 
 Items = {}
-Items.__index = Items
 function Items.new()
-    
+    local items = {}
+    setmetatable(items, Items)
+    return items
 end
 
 Spacer = {}
@@ -79,11 +88,15 @@ function Spacer.new(time_running)
     local spacer = {}
     spacer.spawn = time_running
     spacer.name = "spacer"
+    function spacer.add_score(score)
+        return score + 1
+    end
+
+    function spacer.test()
+        return "Functional"
+    end
     setmetatable(spacer, Spacer)
     return spacer
-end
-function Spacer.add_Score(score)
-    score = score + 1
 end
 function Spacer:get_price(items)
     local amount = 0
@@ -93,8 +106,13 @@ function Spacer:get_price(items)
         end
     end
 
-    return amount
+    return amount ^ 4
 end
+function Spacer:get_name()
+    return self.name
+end
+
+
 
 
 Game = {}
@@ -160,6 +178,9 @@ function Game.new()
     game.particles = {}
     function game.add_score()
         game.Score = game.Score + 1
+        for i,v in ipairs(game.items) do
+            game.Score = v.add_score(game.Score)
+        end
     end
     game.functions["add_score"] = game.add_score
 
@@ -168,7 +189,6 @@ function Game.new()
     game.blorp:setFrequency(.6)
     game.blorp:setDamping(0)
     game.blorp:setFriction(0)
-
     --[[function game.add_item(item, price)
         if price <= game.Score then
             table.insert(game.items, item)
@@ -222,15 +242,37 @@ function Game.new()
         game.set_status_game()
     end
 
+    ]]
+    game.items = Items.new()
+
+    function game.add_item(item, score)
+        if game.Score >= item:get_price(game.items) then
+            game.Score = game.Score - item:get_price(game.items)
+            table.insert(game.items, item)
+            game.set_status_game()
+        end
+    end
+    function game.get_price_of_spacer()
+        local amount = 0
+        for i,v in ipairs(game.items) do
+            if v.get_name == "spacer" then
+                amount = amount + 1
+            end
+        end
+        return amount ^ 4
+    end
+    function game.add_spacer()
+        game.add_item(Spacer.new(), game.Score)
+    end
     function game.set_status_store()
         game.store_menu_object = Menu.new(
             {"Back",
-             "Extra Spacer - Presses once per keyboard press" .. game.spacer.spacer_get_price(),
-             "Presser - Presses once every 5 seconds" .. game.presser.get_price()
+             "Extra Space : " .. Spacer.new():get_price(game.items),
+             "Presser - Presses once every 5 seconds" .. "0"
             },
             {game.set_status_game
             ,game.add_spacer
-            ,game.add_presser}
+            }
         )
         game.status = "store_menu"
     end
@@ -246,7 +288,7 @@ function Game.new()
             game.store_menu_object:press_key(args.key)
         end
     end
-    game.functions["store_menu"] = game.store_menu]]
+    game.functions["store_menu"] = game.store_menu
 
 
     function game.blorp_screen(type, args)
@@ -285,13 +327,9 @@ function Game.new()
             for i=1, 4 do
                 game.world:update(args.dt)
             end
-            game.blorp.centerBody:setPosition(love.graphics:getWidth()/2, love.graphics.getHeight()/2)
+            game.blorp.centerBody:setPosition(love.graphics:getWidth()/2, love.graphics:getHeight()/2)
             game.blorp.centerBody:setLinearVelocity(0,0)
 
-            for i,v in ipairs(game.items) do
-                v.add_score()
-            table.insert(game.particles,game.get_random_particle())
-        end
         end
     end
     game.functions["game"] = game.blorp_screen
@@ -326,7 +364,7 @@ local function get_items_as_string(items)
     if items ~= nil then
         local names = ""
         for i, v in ipairs(items) do
-            names = names .. v.get_name()
+            names = "{" .. names .. v:get_name() .. v.test() .. "} , {"
         end
         return names
     end
@@ -343,7 +381,7 @@ function Game:draw_self()
         love.graphics.print("Score : " .. self.Score, 0, 20)
         love.graphics.print("Status : " .. self.status, 0, 30)
         love.graphics.print("Items : " .. #self.items, 0, 40)
-        love.graphics.print("Items names : " .. get_items_as_string(self.items), 0, 40)
+        love.graphics.print("Items names : " .. get_items_as_string(self.items), 0, 50)
         self.screen:set_font(Font)
     end
 end
