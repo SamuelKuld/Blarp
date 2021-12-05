@@ -1,17 +1,21 @@
 local dir = (...):gsub('%.[^%.]+$', '')
 Utils = require("utils")
+Item = require("item")
 Menu = Utils.menu
 Blobs = Utils.blobs
 Screen = Utils.screen
 Audio = Utils.noises
 
-Score = 1000000 -- How many time the user has clicked
+Score = 1000000 --? How many time the user has clicked
 Time_running = 0.0
 
--- Screen Variables
+--? Screen Variables
 ScreenX = 650
 ScreenY = 650
 Screen_resizable = true
+
+--? The exponent that is applied to the amount of items in an Item object
+Price_power = 4
 
 
 Font = love.graphics.newImageFont("utils/fonts/Resource-Imagefont.png",
@@ -24,45 +28,8 @@ Font_small = love.graphics.newImageFont("utils/fonts/Resource-Imagefont-Small.pn
                                    "123456789.,!?-+/():;%&`'*#=[]\"")
 
 
-Items = {}
-function Items.new()
-    local items = {}
-    setmetatable(items, Items)
-    return items
-end
-
-Spacer = {}
-Spacer.__index = Spacer
-function Spacer.new(time_running)
-    time_running = time_running or 0
-    local spacer = {}
-    spacer.spawn = time_running
-    spacer.name = "spacer"
-    function spacer.add_score(score)
-        return score + 1
-    end
-
-    function spacer.test()
-        return "Functional"
-    end
-    setmetatable(spacer, Spacer)
-    return spacer
-end
-function Spacer:get_price(items)
-    local amount = 0
-    for key,value in ipairs(items) do
-        if value.name == "spacer" then
-            amount = amount + 1
-        end
-    end
-
-    return amount ^ 4
-end
-function Spacer:get_name()
-    return self.name
-end
-
-
+--? Items object
+Items = require("items")
 
 
 Game = {}
@@ -77,6 +44,7 @@ function Game.new()
     game.status = "game"
     game.debug = "true"
 
+    --? Sets the game up for the menu
     function game.set_status_menu()
         game.blorp:destroy()
         game.blorp = Blobs.softbody(game.world, game.screen.width/2, game.screen.height/2, 100, 1, 3)
@@ -127,98 +95,44 @@ function Game.new()
 
     game.particles = {}
     function game.add_score()
+        local previous_score = game.Score
         game.Score = game.Score + 1
-        for i,v in ipairs(game.items) do
-            game.Score = v.add_score(game.Score)
+        for i,v in ipairs(game.items.items) do
+            game.Score = v:add_score(game.Score)
+        end
+        for i=game.Score - previous_score, 1, -1 do
+            table.insert(game.particles, game.get_random_particle())
         end
     end
     game.functions["add_score"] = game.add_score
 
+    --? Creates a new world and softbody for the game
     game.world = love.physics.newWorld(0, 0, true)
     game.blorp = Blobs.softbody(game.world, game.screen.width/2, game.screen.height/2, 100, 1, 3)
     game.blorp:setFrequency(.6)
     game.blorp:setDamping(0)
     game.blorp:setFriction(0)
-    --[[function game.add_item(item, price)
-        if price <= game.Score then
-            table.insert(game.items, item)
+    game.items = Items:new()
+
+    --? Adds an item to the Items object that's an attribute to the game table
+    function game.add_item(item, price_multiplier)
+        price_multiplier = price_multiplier or 0
+        local price = game.items:get_price(item.name, price_multiplier)
+        if game.Score >= price then
             game.Score = game.Score - price
+            game.items:add_item(item)
         end
     end
 
-    game.presser = {}
-    game.presser.spawn = game.Time_running + 0 -- Allows game.presser.spawn to be an independent object of game.Time_running
-    function game.presser.add_score()
-        if game.Time_running - game.presser.spawn >= 5 then
-            game.Score = game.Score + 1
-            game.presser.spawn = 0
-        end
-    end
-    function game.presser.get_name()
-        return "presser"
-    end
-    function game.presser.get_price()
-        local amount = 0
-        for i,v in ipairs(game.items) do
-            if v.get_name() == "presser" then
-                amount = amount + 1
-            end
-        end
-        return amount ^ 3.5
-    end
-    function game.add_presser()
-        game.add_item(game.presser, game.presser.get_price())
+    function game.add_spacer()
+        game.add_item(Item.new("spacer", game.Time_running))
         game.set_status_game()
     end
-
-    game.spacer = {}
-    function game.spacer.add_score()
-        game.Score = game.Score + 1
-    end
-    function game.spacer.spacer_get_price()
-        local amount = 0
-        for i,v in ipairs(game.items) do
-            if v.get_name() == "spacer" then
-                amount = amount + 1
-            end
-        end
-        return amount ^ 4
-    end
-    function game.spacer.get_name()
-        return "spacer"
-    end
-    function game.add_spacer()
-        game.add_item(game.spacer, game.spacer.spacer_get_price())
-        game.set_status_game()
-    end
-
-    ]]
-    game.items = Items.new()
-
-    function game.add_item(item, score)
-        if game.Score >= item:get_price(game.items) then
-            game.Score = game.Score - item:get_price(game.items)
-            table.insert(game.items, item)
-            game.set_status_game()
-        end
-    end
-    function game.get_price_of_spacer()
-        local amount = 0
-        for i,v in ipairs(game.items) do
-            if v.get_name == "spacer" then
-                amount = amount + 1
-            end
-        end
-        return amount ^ 4
-    end
-    function game.add_spacer()
-        game.add_item(Spacer.new(), game.Score)
-    end
+    --? Sets up the game for the store menu
     function game.set_status_store()
         game.store_menu_object = Menu.new(
             {"Back",
-             "Extra Space : " .. Spacer.new():get_price(game.items),
-             "Presser - Presses once every 5 seconds" .. "0"
+             "Extra Space : " .. game.items:get_price("spacer", 0),
             },
             {game.set_status_game
             ,game.add_spacer
@@ -227,9 +141,8 @@ function Game.new()
         game.status = "store_menu"
     end
 
-    game.items = {}
 
-
+    --? Store Menu
     function game.store_menu(type, args)
         if type == "draw" then
             game.store_menu_object:draw_self()
@@ -240,7 +153,7 @@ function Game.new()
     end
     game.functions["store_menu"] = game.store_menu
 
-
+    --? Primary game function
     function game.blorp_screen(type, args)
         args = args or {}
         if type == "draw" then
@@ -248,7 +161,7 @@ function Game.new()
                 love.graphics.setColor(particle_body.color)
                 particle_body:draw_self("fill", false)
                 if particle_body.body:getY() >= love.graphics:getHeight() then
-                    play_random_audio(noises)
+                    Audio.play_random_audio(Audio.noises)
                     game.particles[key].body:destroy()
                     table.remove(game.particles,key)
                 end
@@ -310,11 +223,12 @@ function Game.new()
     return game
 end
 
+--? Gets the item name and adds it to a string
 local function get_items_as_string(items)
     if items ~= nil then
         local names = ""
         for i, v in ipairs(items) do
-            names = "{" .. names .. v:get_name() .. v.test() .. "} , {"
+            names = "{" .. names .. v.name .. "} , {"
         end
         return names
     end
@@ -330,8 +244,8 @@ function Game:draw_self()
         love.graphics.print("Screen Size : " .. self.screen.width .. ", " .. self.screen.height, 0, 10)
         love.graphics.print("Score : " .. self.Score, 0, 20)
         love.graphics.print("Status : " .. self.status, 0, 30)
-        love.graphics.print("Items : " .. #self.items, 0, 40)
-        love.graphics.print("Items names : " .. get_items_as_string(self.items), 0, 50)
+        love.graphics.print("Items : " .. #self.items.items, 0, 40)
+        love.graphics.print("Items names : " .. get_items_as_string(self.items.items), 0, 50)
         self.screen:set_font(Font)
     end
 end
