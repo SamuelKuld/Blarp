@@ -1,7 +1,11 @@
-Menu = require("menu")
-Blobs = require("loveblobs")
+local dir = (...):gsub('%.[^%.]+$', '')
+Utils = require("utils")
+Menu = Utils.menu
+Blobs = Utils.blobs
+Screen = Utils.screen
+Audio = Utils.noises
 
-Score = 1000000 -- How many time thge user has clicked
+Score = 1000000 -- How many time the user has clicked
 Time_running = 0.0
 
 -- Screen Variables
@@ -9,70 +13,16 @@ ScreenX = 650
 ScreenY = 650
 Screen_resizable = true
 
-local noises = {
-    love.audio.newSource("sounds/crackle1.wav", "stream"),
-    love.audio.newSource("sounds/crackle2.wav", "stream"),
-    love.audio.newSource("sounds/crackle3.wav", "stream"),
-    love.audio.newSource("sounds/crackle4.wav", "stream"),
-    love.audio.newSource("sounds/crackle5.wav", "stream"),
-    love.audio.newSource("sounds/plop_1.wav", "stream"),
-    love.audio.newSource("sounds/plop_2.wav", "stream"),
-    love.audio.newSource("sounds/plop_3.wav", "stream"),
-    love.audio.newSource("sounds/plop_4.wav", "stream"),
-    love.audio.newSource("sounds/plop_5.wav", "stream"),
-}
-local key_noises = {
-    love.audio.newSource("sounds/keypress_2.wav", "stream"),
-    love.audio.newSource("sounds/keypress_3.wav", "stream"),
-    love.audio.newSource("sounds/keypress_4.wav", "stream"),
-    love.audio.newSource("sounds/keypress_1.wav", "stream")
-}
-Font = love.graphics.newImageFont("fonts/Resource-Imagefont.png",
+
+Font = love.graphics.newImageFont("utils/fonts/Resource-Imagefont.png",
                                    " abcdefghijklmnopqrstuvwxyz" ..
                                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0" ..
                                    "123456789.,!?-+/():;%&`'*#=[]\"")
-Font_small = love.graphics.newImageFont("fonts/Resource-Imagefont-Small.png",
+Font_small = love.graphics.newImageFont("utils/fonts/Resource-Imagefont-Small.png",
                                    " abcdefghijklmnopqrstuvwxyz" ..
                                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0" ..
                                    "123456789.,!?-+/():;%&`'*#=[]\"")
 
-
-local function play_random_audio(noise_group)
-    love.audio.play(noise_group[math.random(1, #noise_group)])
-end
-
-
-Screen = {}
-Screen.__index = Screen
-function Screen.new()
-    local screen = {}
-    screen.width = ScreenX
-    screen.height = ScreenY
-    screen.resizable = Screen_resizable
-    screen.font = Font
-    setmetatable(screen, Screen)
-    return screen
-end
-function Screen:resize(resize)
-    resize = resize or self
-    self.width = resize.width
-    self.height = resize.height
-    self.resizable = resize.resizable
-    self.font = resize.font
-    love.window.setMode(self.width, self.height, {resizable = self.resizable })
-end
-function Screen:set_font(font)
-    self.font = font
-    love.graphics.setFont(self.font)
-end
-function Screen:get_width()
-    self.width = love.graphics:getWidth()
-    return self.width
-end
-function Screen:get_height()
-    self.height = love.graphics:getHeight()
-    return self.height
-end
 
 Items = {}
 function Items.new()
@@ -390,10 +340,10 @@ function Game:update(dt)
     self.functions[self.status]("update", {dt=dt})
 end
 function Game:keypress(key)
-    play_random_audio(key_noises)
+    Audio.play_random_audio(Audio.key_noises)
     self.functions[self.status]("keypress", {key=key})
 
 end
 
 
-return Game
+return Game.new()

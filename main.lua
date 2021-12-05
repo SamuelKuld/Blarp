@@ -1,5 +1,5 @@
 function love.load()
-    Game = require("game_obj").new()
+    Game = require("game_obj")
 end
 
 function love.update(delta_time)
