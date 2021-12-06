@@ -15,7 +15,7 @@ function Items:Find_items(name)
     return amount
 end
 function Items:get_price(name, multiplier)
-    return self:Find_items(name) ^ (Price_power + multiplier)
+    return math.floor(self:Find_items(name) ^ (Price_power + multiplier))
 end
 function Items:add_item(item)
     table.insert(self.items, item)

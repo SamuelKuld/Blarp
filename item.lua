@@ -16,6 +16,7 @@ function Item.new(name, start_time, price_multiplier)
     item.name = name
     item.spawn = start_time or 0
     item.price_multiplier = price_multiplier or 0
+    item.impulse = true
     setmetatable(item, Item)
     return item
 end

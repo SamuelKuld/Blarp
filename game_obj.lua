@@ -104,6 +104,17 @@ function Game.new()
             table.insert(game.particles, game.get_random_particle())
         end
     end
+    function game.add_score_loop()
+        local previous_score = game.Score
+        for i,v in ipairs(game.items.items) do
+            if v.impulse == false then
+                game.Score = v:add_score(game.Score)
+            end
+        end
+        for i=game.Score - previous_score, 1, -1 do
+            table.insert(game.particles, game.get_random_particle())
+        end
+    end
     game.functions["add_score"] = game.add_score
 
     --? Creates a new world and softbody for the game
@@ -125,17 +136,35 @@ function Game.new()
     end
 
     function game.add_spacer()
-        game.add_item(Item.new("spacer", game.Time_running))
+        local spacer = Item.new("spacer", game.Time_running)
+        game.add_item(spacer, 1)
+        game.set_status_game()
+    end
+    function game.add_auto_spacer()
+        local new_auto_spacer = Item.new("auto spacer", game.Time_running)
+        new_auto_spacer.impulse = false
+        new_auto_spacer.last_add = 0
+        function new_auto_spacer:add_score(Score)
+            if math.floor(game.Time_running - self.spawn) % 5 == 0 and (game.Time_running - new_auto_spacer.last_add > 5) then
+                new_auto_spacer.last_add = game.Time_running
+                Score = Score + 1
+            end
+            return Score
+        end
+        game.add_item(new_auto_spacer, -2)
         game.set_status_game()
     end
     --? Sets up the game for the store menu
     function game.set_status_store()
         game.store_menu_object = Menu.new(
             {"Back",
-             "Extra Space : " .. game.items:get_price("spacer", 0),
+             "Extra Space : " .. game.items:get_price("spacer", 1),
+             "Auto Spacer : " .. game.items:get_price("auto spacer", -2),
             },
-            {game.set_status_game
-            ,game.add_spacer
+            {
+            game.set_status_game,
+            game.add_spacer,
+            game.add_auto_spacer,
             }
         )
         game.status = "store_menu"
@@ -173,8 +202,8 @@ function Game.new()
 
         if type == "keypress" then
             if (args.key == "space" or args.key == "return") then
-                game.blorp = game.random_nodes(game.blorp)
                 game.add_score()
+                game.blorp = game.random_nodes(game.blorp)
             end
             if args.key == "escape" then
                 game.set_status_menu()
@@ -187,6 +216,7 @@ function Game.new()
         if type == "update" then
             game.Time_running = game.Time_running + args.dt
             game.blorp:update(args.dt)
+            game.add_score_loop()
             for i=1, 4 do
                 game.world:update(args.dt)
             end
