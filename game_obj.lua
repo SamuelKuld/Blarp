@@ -5,8 +5,9 @@ Menu = Utils.menu
 Blobs = Utils.blobs
 Screen = Utils.screen
 Audio = Utils.noises
+Files = Utils.file_handler
 
-Score = 1000000 --? How many time the user has clicked
+Score = 1 --? How many time the user has clicked
 Time_running = 0.0
 
 --? Screen Variables
@@ -17,6 +18,14 @@ Screen_resizable = true
 --? The exponent that is applied to the amount of items in an Item object
 Price_power = 4
 
+local function in_array(value, array)
+    for iteration, array_value in ipairs(array) do
+        if array_value == value then
+            return true
+        end
+    end
+    return false
+end
 
 Font = love.graphics.newImageFont("utils/fonts/Resource-Imagefont.png",
                                    " abcdefghijklmnopqrstuvwxyz" ..
@@ -42,18 +51,24 @@ function Game.new()
     game.Score = Score
     game.Time_running = Time_running
     game.status = "game"
-    game.debug = "true"
+    game.debug = false
 
     --? Sets the game up for the menu
     function game.set_status_menu()
         game.blorp:destroy()
-        game.blorp = Blobs.softbody(game.world, game.screen.width/2, game.screen.height/2, 100, 1, 3)
+        game.blorp = Blobs.softbody(game.world, love.graphics.getWidth()/2, love.graphics.getHeight()/2, 100, 1, 3)
         game.blorp:setFrequency(.6)
         game.blorp:setDamping(0)
         game.blorp:setFriction(0)
         game.status = "menu"
     end
+
     function game.set_status_game()
+        game.blorp:destroy()
+        game.blorp = Blobs.softbody(game.world, love.graphics.getWidth()/2, love.graphics.getHeight()/2, 100, 1, 3)
+        game.blorp:setFrequency(.6)
+        game.blorp:setDamping(0)
+        game.blorp:setFriction(0)
         game.status = "game"
     end
 
@@ -119,30 +134,37 @@ function Game.new()
 
     --? Creates a new world and softbody for the game
     game.world = love.physics.newWorld(0, 0, true)
-    game.blorp = Blobs.softbody(game.world, game.screen.width/2, game.screen.height/2, 100, 1, 3)
+    game.blorp = Blobs.softbody(game.world, love.graphics.getWidth()/2, love.graphics.getHeight()/2, 100, 1, 3)
     game.blorp:setFrequency(.6)
     game.blorp:setDamping(0)
     game.blorp:setFriction(0)
     game.items = Items:new()
 
+    --? Allows us to count how many times the game has iterated
+    game.iterations = 0
+    --? If we need to display the prompt for the store
+    game.first_section = true
+
     --? Adds an item to the Items object that's an attribute to the game table
     function game.add_item(item, price_multiplier)
         price_multiplier = price_multiplier or 0
         local price = game.items:get_price(item.name, price_multiplier)
-        if game.Score >= price then
-            game.Score = game.Score - price
+        if game.Score >= price + item.initial_price then
+            game.Score = game.Score - price - item.initial_price
             game.items:add_item(item)
         end
     end
 
     function game.add_spacer()
         local spacer = Item.new("spacer", game.Time_running)
+        spacer.initial_price = 10
         game.add_item(spacer, 1)
         game.set_status_game()
     end
     function game.add_auto_spacer()
         local new_auto_spacer = Item.new("auto spacer", game.Time_running)
         new_auto_spacer.impulse = false
+        new_auto_spacer.initial_price = 10
         new_auto_spacer.last_add = 0
         function new_auto_spacer:add_score(Score)
             if math.floor(game.Time_running - self.spawn) % 5 == 0 and (game.Time_running - new_auto_spacer.last_add > 5) then
@@ -154,17 +176,36 @@ function Game.new()
         game.add_item(new_auto_spacer, -2)
         game.set_status_game()
     end
+
+    function game.add_mega_auto_spacer()
+        local new_auto_spacer = Item.new("mega auto spacer", game.Time_running)
+        new_auto_spacer.impulse = false
+        new_auto_spacer.last_add = 0
+        new_auto_spacer.initial_price = 100
+        function new_auto_spacer:add_score(Score)
+            if math.floor(game.Time_running - self.spawn) % 5 == 0 and (game.Time_running - new_auto_spacer.last_add > 5) then
+                new_auto_spacer.last_add = game.Time_running
+                Score = Score + 5
+            end
+            return Score
+        end
+        game.add_item(new_auto_spacer, 2)
+        game.set_status_game()
+    end
     --? Sets up the game for the store menu
     function game.set_status_store()
+        game.first_section = false
         game.store_menu_object = Menu.new(
             {"Back",
-             "Extra Space : " .. game.items:get_price("spacer", 1),
-             "Auto Spacer : " .. game.items:get_price("auto spacer", -2),
+             "Extra Space : " .. game.items:get_price("spacer", 1) + 10,
+             "Auto Spacer : " .. game.items:get_price("auto spacer", -2) + 10,
+             "Mega Auto Spacer : " .. game.items:get_price("mega auto spacer", 2) + 100,
             },
             {
             game.set_status_game,
             game.add_spacer,
             game.add_auto_spacer,
+            game.add_mega_auto_spacer,
             }
         )
         game.status = "store_menu"
@@ -197,6 +238,9 @@ function Game.new()
             end
             love.graphics.setColor(1,0,0,1)
             game.blorp:draw("fill", true)
+            if game.first_section then
+                love.graphics.print("Press 'S' to go to the store", game.blorp.centerBody:getX() - 250, game.blorp.centerBody:getY() + 200)
+            end
             love.graphics.print(game.Score, game.blorp.centerBody:getX() - #tostring(game.Score) * 10, game.blorp.centerBody:getY() - 10)
         end
 
@@ -214,6 +258,7 @@ function Game.new()
         end
 
         if type == "update" then
+            game.iterations = game.iterations + 1
             game.Time_running = game.Time_running + args.dt
             game.blorp:update(args.dt)
             game.add_score_loop()
@@ -227,11 +272,69 @@ function Game.new()
     end
     game.functions["game"] = game.blorp_screen
 
+
+    game.save_menu = Menu.new(
+        {"Back",
+         "Done",},
+        {game.set_status_menu}
+    )
+    function game.set_status_save()
+        game.status = "save"
+    end
+    game.save_keys = ""
+    game.done_typing_save = false
+    function game.save_state(name)
+
+    end
+    function game.save(type, args)
+        local key = ""
+        local something = "test"
+        if type == "keypress" then
+            if game.save_done_typing then
+                game.save_menu.press_key(args.key)
+            else
+
+                if not in_array(args.key, {"lshift", "rshift", "lalt", "lctrl", 'rctrl', 'ralt', 'space', 'escape', 'return', 'capslock', 'tab', '.', ',', '+', '+'})  then
+                    game.save_keys = game.save_keys .. args.key
+                end
+                if args.key == "escape" then
+                    game.save_done_typing = true
+                end
+            end
+        end
+        if type == "draw" then
+            if not game.save_done_typing then
+                love.graphics.setColor(1,1,1,1)
+                love.graphics.print("Begin typing to name your save", love.graphics:getWidth() / 2 - #"Begin typing to name your save" * 9, love.graphics:getHeight() / 2 - 200)
+                love.graphics.print("Press 'ESC' when complete", love.graphics:getWidth() / 2 - #"Press 'ESC' when complete" * 9, love.graphics:getHeight() / 2 - 100)
+                love.graphics.print(game.save_keys, love.graphics:getWidth() / 2 - #game.save_keys * 9, love.graphics:getHeight() / 2 )
+            else
+                game.save_state(game.save_keys)
+            end
+
+        end
+
+    end
+    game.functions["save"] = game.save
+
+
+    function game.set_status_load()
+        game.status = "load"
+    end
+    function game.load(type, args)
+
+    end
+    game.functions["load"] = game.load
+
     game.Main_menu = Menu.new(
         {"Start",
+        "Save",
+        "Load",
         "Quit"},
         {
         game.set_status_game,
+        game.set_status_save,
+        game.set_status_load,
         love.event.quit
         }
     )
@@ -266,6 +369,7 @@ local function get_items_as_string(items)
 end
 
 function Game:draw_self()
+    self.screen:set_font(Font)
     self.functions[self.status]("draw", {})
     if self.debug then
         self.screen:set_font(Font_small)
