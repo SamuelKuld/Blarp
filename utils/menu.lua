@@ -1,6 +1,6 @@
 Menu = {}
 Menu.__index = Menu
-function Menu.new(menus, functions, offsetX, offsetY)
+function Menu.new(menus, functions, offsetX, offsetY, args)
     local menu = {}
     menu.offsetX = offsetX or 0
     menu.offsetY = offsetY or 0
@@ -26,7 +26,7 @@ function Menu:draw_self()
     end
 end
 
-function Menu:press_key(key)
+function Menu:press_key(key, args)
     if (key == "s" or key == "down")  and (self.selected_item <= #self.menus - 1) then
         self.selected_item = self.selected_item + 1
     elseif (key == "s" or key == "down") then
@@ -38,7 +38,9 @@ function Menu:press_key(key)
         self.selected_item = #self.menus
     end
 
-    if key == "return" or key == "space" then
+    if args ~= nil and (key == "return" or key == "space") then
+        self.functions[self.selected_item](args)
+    elseif (key == "return" or key == "space") then
         self.functions[self.selected_item]()
     end
 

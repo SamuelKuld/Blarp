@@ -1,3 +1,5 @@
+love._openConsole()
+Dir = os.getenv("PWD") or io.popen("cd"):read()
 local dir = (...):gsub('%.[^%.]+$', '')
 Utils = require("utils")
 Item = require("item")
@@ -18,6 +20,17 @@ Screen_resizable = true
 --? The exponent that is applied to the amount of items in an Item object
 Price_power = 4
 
+local function scan_directory()
+    local i, t, popen = 0, {}, io.popen
+    local pfile = popen('dir "'.. Dir  .. '/saves/" /b ')
+    for filename in pfile:lines() do
+        i = i + 1
+        t[i] = filename
+    end
+    pfile:close()
+    return t
+end
+
 local function in_array(value, array)
     for iteration, array_value in ipairs(array) do
         if array_value == value then
@@ -25,6 +38,18 @@ local function in_array(value, array)
         end
     end
     return false
+end
+
+--? Gets the item name and adds it to a string
+local function get_items_as_string(items)
+    if items ~= nil then
+        local names = ""
+        for i, v in ipairs(items) do
+            names =  names .. " " .. v.name
+        end
+        return names
+    end
+    return ""
 end
 
 Font = love.graphics.newImageFont("utils/fonts/Resource-Imagefont.png",
@@ -51,7 +76,8 @@ function Game.new()
     game.Score = Score
     game.Time_running = Time_running
     game.status = "game"
-    game.debug = false
+    game.debug = true
+    game.most_recent_key = "return"
 
     --? Sets the game up for the menu
     function game.set_status_menu()
@@ -162,7 +188,7 @@ function Game.new()
         game.set_status_game()
     end
     function game.add_auto_spacer()
-        local new_auto_spacer = Item.new("auto spacer", game.Time_running)
+        local new_auto_spacer = Item.new("auto_spacer", game.Time_running)
         new_auto_spacer.impulse = false
         new_auto_spacer.initial_price = 10
         new_auto_spacer.last_add = 0
@@ -178,7 +204,7 @@ function Game.new()
     end
 
     function game.add_mega_auto_spacer()
-        local new_auto_spacer = Item.new("mega auto spacer", game.Time_running)
+        local new_auto_spacer = Item.new("mega_auto_spacer", game.Time_running)
         new_auto_spacer.impulse = false
         new_auto_spacer.last_add = 0
         new_auto_spacer.initial_price = 100
@@ -198,8 +224,8 @@ function Game.new()
         game.store_menu_object = Menu.new(
             {"Back",
              "Extra Space : " .. game.items:get_price("spacer", 1) + 10,
-             "Auto Spacer : " .. game.items:get_price("auto spacer", -2) + 10,
-             "Mega Auto Spacer : " .. game.items:get_price("mega auto spacer", 2) + 100,
+             "Auto Spacer : " .. game.items:get_price("auto_spacer", -2) + 10,
+             "Mega Auto Spacer : " .. game.items:get_price("mega_auto_spacer", 2) + 100,
             },
             {
             game.set_status_game,
@@ -282,18 +308,24 @@ function Game.new()
         game.status = "save"
     end
     game.save_keys = ""
-    game.done_typing_save = false
+    game.save_done_typing = false
     function game.save_state(name)
+        local save_array = {
+            get_items_as_string(game.items.items), -- Single line multiple Spaces
+            tostring(game.Time_running), -- Single line from integer
+            tostring(game.Score), -- Single line from integer
+        }
+        Files.write_array_to_file(name, save_array)
+        game.save_done_typing = false
+        game.save_keys = ""
+        game.set_status_game()
 
     end
     function game.save(type, args)
-        local key = ""
-        local something = "test"
         if type == "keypress" then
             if game.save_done_typing then
                 game.save_menu.press_key(args.key)
             else
-
                 if not in_array(args.key, {"lshift", "rshift", "lalt", "lctrl", 'rctrl', 'ralt', 'space', 'escape', 'return', 'capslock', 'tab', '.', ',', '+', '+'})  then
                     game.save_keys = game.save_keys .. args.key
                 end
@@ -321,8 +353,37 @@ function Game.new()
     function game.set_status_load()
         game.status = "load"
     end
+
+    function game.parse_data(file_position)
+        print(file_position)
+        local name = scan_directory()[file_position]
+        local raw_data = Files.read_lines_of_file_as_array(name)
+        local items = Files.split(raw_data[1], " ")
+        local time_running = Files[2]
+        local score = Files[3]
+        game.Score = score
+        game.Time_running = time_running
+        game.set_status_game()
+    end
+    game.previous_load_menu = {}
+    local files = scan_directory()
+    local parse_data_amount = #files
+    local parse_data_list = {}
+    for i=1, parse_data_amount do
+        parse_data_list[i] = game.parse_data
+    end
+    Load_menu = Menu.new(files, parse_data_list)
+
     function game.load(type, args)
 
+        if type == "draw" then
+            Load_menu:draw_self()
+        end
+        if type == "keypress" then
+            local item = Load_menu.selected_item
+            Load_menu:press_key(args.key, item)
+        end
+        game.previous_load_menu = Load_menu
     end
     game.functions["load"] = game.load
 
@@ -356,18 +417,6 @@ function Game.new()
     return game
 end
 
---? Gets the item name and adds it to a string
-local function get_items_as_string(items)
-    if items ~= nil then
-        local names = ""
-        for i, v in ipairs(items) do
-            names = "{" .. names .. v.name .. "} , {"
-        end
-        return names
-    end
-    return ""
-end
-
 function Game:draw_self()
     self.screen:set_font(Font)
     self.functions[self.status]("draw", {})
@@ -380,6 +429,9 @@ function Game:draw_self()
         love.graphics.print("Status : " .. self.status, 0, 30)
         love.graphics.print("Items : " .. #self.items.items, 0, 40)
         love.graphics.print("Items names : " .. get_items_as_string(self.items.items), 0, 50)
+        love.graphics.print("Save State : " .. tostring(self.save_done_typing), 0, 60)
+        love.graphics.print("Save Keys : " .. self.save_keys, 0, 70)
+        love.graphics.print("Most recent key : " .. self.most_recent_key, 0, 80)
         self.screen:set_font(Font)
     end
 end
@@ -389,6 +441,7 @@ function Game:update(dt)
 end
 function Game:keypress(key)
     Audio.play_random_audio(Audio.key_noises)
+    self.most_recent_key = key
     self.functions[self.status]("keypress", {key=key})
 
 end
