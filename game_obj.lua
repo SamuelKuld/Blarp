@@ -184,7 +184,7 @@ function Game.new()
     function game.add_spacer()
         local spacer = Item.new("spacer", game.Time_running)
         spacer.initial_price = 10
-        game.add_item(spacer, 1)
+        game.add_item(spacer, 0)
         game.set_status_game()
     end
     function game.add_auto_spacer()
@@ -193,7 +193,7 @@ function Game.new()
         new_auto_spacer.initial_price = 10
         new_auto_spacer.last_add = 0
         function new_auto_spacer:add_score(Score)
-            if math.floor(game.Time_running - self.spawn) % 5 == 0 and (game.Time_running - new_auto_spacer.last_add > 5) then
+            if math.floor(game.Time_running - self.spawn) % 1 == 0 and (game.Time_running - new_auto_spacer.last_add > .5) then
                 new_auto_spacer.last_add = game.Time_running
                 Score = Score + 1
             end
@@ -209,13 +209,13 @@ function Game.new()
         new_auto_spacer.last_add = 0
         new_auto_spacer.initial_price = 100
         function new_auto_spacer:add_score(Score)
-            if math.floor(game.Time_running - self.spawn) % 5 == 0 and (game.Time_running - new_auto_spacer.last_add > 5) then
+            if math.floor(game.Time_running - self.spawn) % 1 == 0 and (game.Time_running - new_auto_spacer.last_add > .5) then
                 new_auto_spacer.last_add = game.Time_running
                 Score = Score + 5
             end
             return Score
         end
-        game.add_item(new_auto_spacer, 2)
+        game.add_item(new_auto_spacer, 1)
         game.set_status_game()
     end
     --? Sets up the game for the store menu
@@ -223,9 +223,9 @@ function Game.new()
         game.first_section = false
         game.store_menu_object = Menu.new(
             {"Back",
-             "Extra Space : " .. game.items:get_price("spacer", 1) + 10,
+             "Extra Space : " .. game.items:get_price("spacer", 0) + 10,
              "Auto Spacer : " .. game.items:get_price("auto_spacer", -2) + 10,
-             "Mega Auto Spacer : " .. game.items:get_price("mega_auto_spacer", 2) + 100,
+             "Mega Auto Spacer : " .. game.items:get_price("mega_auto_spacer", 1) + 100,
             },
             {
             game.set_status_game,
