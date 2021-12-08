@@ -19,7 +19,7 @@ function fileIO.combine(array)
 end
 
 function fileIO.write_to_new_file(name, data)
-    name = Dir .. "saves/" .. name
+    name =  "saves/" .. name
     local file,err = io.open(name, "w+")
     if file then
         file:write(tostring(data))
@@ -34,7 +34,7 @@ function fileIO.write_array_to_file(name, array)
 end
 
 function fileIO.read_file(name)
-    name = Dir .. "saves/" .. name
+    name = "saves/" .. name
     local file,err = io.open(name, "r")
 
     if file then
@@ -57,15 +57,11 @@ end
 
 
 function fileIO.read_lines_of_file_as_array(name)
-    local lines_list = {}
-    local lines = io.lines("saves/" .. name)
-    local counter = 0
-    for line in lines do
-        counter = counter + 1
-        print(lines_list[fileIO.count_lines_in_file(name) + 1 - counter])
-        lines_list[counter + 1 - counter] = line
+    local lines = {}
+    for line in io.lines("saves/" .. name) do
+        print(line)
+        lines[#lines + 1] = line
     end
-    print(lines_list[2])
     return lines
 end
 

@@ -358,9 +358,12 @@ function Game.new()
         print(file_position)
         local name = scan_directory()[file_position]
         local raw_data = Files.read_lines_of_file_as_array(name)
+        for key,value in ipairs(raw_data) do
+            print(key .. " : " .. value)
+        end
         local items = Files.split(raw_data[1], " ")
-        local time_running = Files[2]
-        local score = Files[3]
+        local time_running = raw_data[2]
+        local score = raw_data[3]
         game.Score = score
         game.Time_running = time_running
         game.set_status_game()
