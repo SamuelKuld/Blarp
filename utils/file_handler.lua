@@ -59,7 +59,6 @@ end
 function fileIO.read_lines_of_file_as_array(name)
     local lines = {}
     for line in io.lines("saves/" .. name) do
-        print(line)
         lines[#lines + 1] = line
     end
     return lines

@@ -1,6 +1,7 @@
 Items = {items = {}}
 function Items:new()
     local object = {}
+    Items.items = {}
     setmetatable(object, self)
     self.__index =  self
     return object
@@ -19,6 +20,9 @@ function Items:get_price(name, multiplier)
 end
 function Items:add_item(item)
     table.insert(self.items, item)
+end
+function Items:reset()
+    self.items = nil
 end
 
 return Items

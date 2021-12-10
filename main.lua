@@ -14,3 +14,7 @@ end
 function love.keypressed(key)
     Game:keypress(key)
 end
+
+function love.resize(width, height)
+    Game:window_resize(width, height)
+end

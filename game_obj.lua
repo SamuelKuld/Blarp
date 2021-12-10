@@ -52,6 +52,16 @@ local function get_items_as_string(items)
     return ""
 end
 
+local function get_array_as_string(items)
+    if items ~= nil then
+        local names = ""
+        for i, v in ipairs(items) do
+            names =  names .. v
+        end
+        return names
+    end
+    return ""
+end
 Font = love.graphics.newImageFont("utils/fonts/Resource-Imagefont.png",
                                    " abcdefghijklmnopqrstuvwxyz" ..
                                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0" ..
@@ -91,7 +101,7 @@ function Game.new()
 
     function game.set_status_game()
         game.blorp:destroy()
-        game.blorp = Blobs.softbody(game.world, love.graphics.getWidth()/2, love.graphics.getHeight()/2, 100, 1, 3)
+        game.blorp = Blobs.softbody(game.world, love.graphics:getWidth()/2, love.graphics:getHeight()/2, 100, 1, 3)
         game.blorp:setFrequency(.6)
         game.blorp:setDamping(0)
         game.blorp:setFriction(0)
@@ -181,13 +191,18 @@ function Game.new()
         end
     end
 
-    function game.add_spacer()
+    function game.add_spacer(immediate)
+        immediate = immediate or false
         local spacer = Item.new("spacer", game.Time_running)
         spacer.initial_price = 10
-        game.add_item(spacer, 0)
+        if immediate then
+            game.items:add_item(spacer)
+        else
+            game.add_item(spacer, 0)
+        end
         game.set_status_game()
     end
-    function game.add_auto_spacer()
+    function game.add_auto_spacer(immediate)
         local new_auto_spacer = Item.new("auto_spacer", game.Time_running)
         new_auto_spacer.impulse = false
         new_auto_spacer.initial_price = 10
@@ -199,11 +214,15 @@ function Game.new()
             end
             return Score
         end
-        game.add_item(new_auto_spacer, -2)
+        if immediate then
+            game.items:add_item(new_auto_spacer)
+        else
+            game.add_item(new_auto_spacer, -2)
+        end
         game.set_status_game()
     end
 
-    function game.add_mega_auto_spacer()
+    function game.add_mega_auto_spacer(immediate)
         local new_auto_spacer = Item.new("mega_auto_spacer", game.Time_running)
         new_auto_spacer.impulse = false
         new_auto_spacer.last_add = 0
@@ -214,6 +233,11 @@ function Game.new()
                 Score = Score + 5
             end
             return Score
+        end
+        if immediate then
+            game.items:add_item(new_auto_spacer)
+        else
+            game.add_item(new_auto_spacer, 1)
         end
         game.add_item(new_auto_spacer, 1)
         game.set_status_game()
@@ -321,13 +345,26 @@ function Game.new()
         game.set_status_game()
 
     end
+    function game.get_before_last_index(string_)
+        local chars = ""
+        for i=1, #string_ do
+            if i + 1 ~= #string_ then
+                print(chars)
+                chars = chars .. string[i]
+            end
+        end
+        return chars
+    end
     function game.save(type, args)
         if type == "keypress" then
             if game.save_done_typing then
                 game.save_menu.press_key(args.key)
             else
-                if not in_array(args.key, {"lshift", "rshift", "lalt", "lctrl", 'rctrl', 'ralt', 'space', 'escape', 'return', 'capslock', 'tab', '.', ',', '+', '+'})  then
+                if not in_array(args.key, {"backspace","lshift", "rshift", "lalt", "lctrl", 'rctrl', 'ralt', 'space', 'escape', 'return', 'capslock', 'tab', '.', ',', '+', '+'})  then
                     game.save_keys = game.save_keys .. args.key
+                end
+                if args.key == "backspace" then
+                    game.save_keys = string.sub(game.save_keys, 1, #game.save_keys - 1)
                 end
                 if args.key == "escape" then
                     game.save_done_typing = true
@@ -354,19 +391,36 @@ function Game.new()
         game.status = "load"
     end
 
+    function game.add_item_from_string(string_)
+        local possible_values = {}
+        possible_values["auto_spacer"] = game.add_auto_spacer
+        possible_values["spacer"] = game.add_spacer
+        possible_values["mega_auto_spacer"] = game.add_mega_auto_spacer
+        if possible_values[string_] ~= nil then
+            possible_values[string_](true)
+        end
+
+    end
+
+    function game.add_items_from_array(array)
+        for i, value in ipairs(array) do
+            game.add_item_from_string(value)
+        end
+    end
     function game.parse_data(file_position)
-        print(file_position)
         local name = scan_directory()[file_position]
         local raw_data = Files.read_lines_of_file_as_array(name)
-        for key,value in ipairs(raw_data) do
-            print(key .. " : " .. value)
-        end
         local items = Files.split(raw_data[1], " ")
+        print("Save Items = " .. get_array_as_string(items))
+        print("GameItems before load = " .. get_items_as_string(game.items.items))
+        game.items.items = {}
+        game.add_items_from_array(items)
         local time_running = raw_data[2]
         local score = raw_data[3]
         game.Score = score
         game.Time_running = time_running
         game.set_status_game()
+        print("GameItems after load = " .. get_items_as_string(game.items.items))
     end
     game.previous_load_menu = {}
     local files = scan_directory()
@@ -378,7 +432,6 @@ function Game.new()
     Load_menu = Menu.new(files, parse_data_list)
 
     function game.load(type, args)
-
         if type == "draw" then
             Load_menu:draw_self()
         end
@@ -402,7 +455,7 @@ function Game.new()
         love.event.quit
         }
     )
-
+--[[  ]]
     function game.main_menu(type, args)
         args = args or nil
         if type == "draw" then
@@ -446,8 +499,12 @@ function Game:keypress(key)
     Audio.play_random_audio(Audio.key_noises)
     self.most_recent_key = key
     self.functions[self.status]("keypress", {key=key})
-
 end
-
+function Game:window_resize(width, height)
+    Game.blorp = Blobs.softbody(Game.world, love.graphics.getWidth()/2, love.graphics.getHeight()/2, 100, 1, 3)
+    Game.blorp:setFrequency(.6)
+    Game.blorp:setDamping(0)
+    Game.blorp:setFriction(0)
+end
 
 return Game.new()

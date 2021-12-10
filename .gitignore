@@ -43,4 +43,7 @@ luac.out
 .VSCodeCounter
 .vscode
 *.dat
-/saves/*
+saves/*
+*.bat
+*.exe
+saves/test
