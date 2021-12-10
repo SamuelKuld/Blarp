@@ -326,8 +326,7 @@ function Game.new()
     game.save_menu = Menu.new(
         {"Back",
          "Done",},
-        {game.set_status_menu}
-    )
+        {game.set_status_menu})
     function game.set_status_save()
         game.status = "save"
     end
@@ -419,6 +418,9 @@ function Game.new()
         local score = raw_data[3]
         game.Score = score
         game.Time_running = time_running
+        for i, value in ipairs(game.items.items) do
+            value.last_add = math.random(0,10)
+        end
         game.set_status_game()
         print("GameItems after load = " .. get_items_as_string(game.items.items))
     end
