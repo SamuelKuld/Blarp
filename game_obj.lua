@@ -160,6 +160,7 @@ function Game.new()
         for i,v in ipairs(game.items.items) do
             if v.impulse == false then
                 game.Score = v:add_score(game.Score)
+                game.blorp = game.random_nodes(game.blorp)
             end
         end
         for i=game.Score - previous_score, 1, -1 do
